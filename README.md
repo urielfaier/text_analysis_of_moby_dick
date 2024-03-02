@@ -13,4 +13,5 @@ Our main objectives include:
 ## Files
 - `README.md`: This README file providing an overview of the project.
 - `Text Analysis for Moby Dick.Rmd`: R Markdown script containing the analysis code.
+- `Text Analysis for Moby Dick.html`: HTML file containing the analysis.
 
