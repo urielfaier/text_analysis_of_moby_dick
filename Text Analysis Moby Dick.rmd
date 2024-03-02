@@ -1,0 +1,245 @@
+---
+title: "R Text Analysis for Moby Dick"
+author: "Uriel Faier"
+output: html_document
+
+---
+
+```{r, include=FALSE}
+library(tidyverse) # This includes dplyr, stringr, ggplot2, .. 
+library(data.table)
+library(ggthemes)
+library(stringr)
+library(tidytext) 
+library(rvest)
+```
+
+
+## Introduction
+
+Welcome to the Moby Dick Text Analysis Mini project! In this project, we preform some textual analysis on the famous book Moby Dick, using the R programming language.
+
+### Project outline:
+
+
+1. **Data Acquisition:** We'll begin by extracting the complete text of Moby Dick from the Gutenberg project and preparing it for analysis.
+
+2. **Word Frequency Analysis:** Next, we'll delve into the distribution of word lengths, compute word frequencies, and identify the most common words in the text.
+
+3. **Chapter Structure Examination:** We'll analyze the chapter structure of Moby Dick, including word counts per chapter, and identify significant patterns or themes.
+
+
+---
+
+
+#### Data Acquisition:
+
+Before we begin our analysis, we need to acquire the text of Moby Dick from the Gutenberg project. We'll use the `rvest` package in R to Scrape and read the HTML content of the book's webpage and extract the text.
+
+```{r}
+## Load necessary libraries
+library(rvest)
+
+## Define the URL for Moby Dick on Gutenberg
+url <- "https://www.gutenberg.org/files/2701/2701-h/2701-h.htm"
+
+## Read the HTML content of the webpage
+md_html <- read_html(url)
+
+## Extract the text of the book from the HTML content
+md <- html_text(html_nodes(md_html, "body"))
+
+## Extract the title of the book
+title <- html_text(html_nodes(md_html, "title"))
+```
+
+
+#### Word Frequency Analysis:
+
+Now that we have the text of Moby Dick, let's analyze the distribution of word lengths and compute various statistics such as the median, mean, longest word, and most common word length.
+
+
+```{r}
+## Split the text into individual words
+per_word_split <- strsplit(md, "\\W+")[[1]]
+
+## Calculate the number of words in the text
+number_of_words <- length(per_word_split)
+
+## Calculate the length of each word
+len_per_word <- nchar(per_word_split)
+
+## Create a bar plot showing the distribution of word lengths
+barplot(table(len_per_word), col = "dark blue", ylim = c(0, 60000), 
+        main = "distribution of word length in the book ", xlab = "Word Length", ylab = "Frequency")
+```
+
+
+```{r}
+## Calculate statistics on word lengths
+median <- median(len_per_word, na.rm = TRUE)
+mean <- mean(len_per_word, na.rm = TRUE)
+longest <- max(len_per_word)
+most_common <- names(sort(table(len_per_word), decreasing = TRUE)[1])
+
+## Display the results
+cat("\nThere are", number_of_words, "words in the text.\n")
+cat("\nThe median length of words is:", median, "\n")
+cat("The mean length of words is:", mean, "\n")
+cat("The longest length of words is:", longest, "\n")
+cat("The most common length of words is:", most_common, "\n")
+```
+
+#### most frequent words:
+
+Let's compute the frequency of each word in the text and display the top 10 most frequent words.
+
+```{r}
+## Calculate word frequencies
+word_frequencies <- table(per_word_split)
+
+## Display the top 10 most frequent words
+top_words <- as.data.frame(sort(word_frequencies, decreasing = TRUE))[1:10,]
+top_words
+```
+
+
+As we can see the top 10 most frequent words in the book are words like
+"the" , "and" , "of" and so on .. this make sense and not a surprise
+seeing how we use these words all the time to build sentences.
+
+
+#### Spliting the Text by chapter 
+
+Below, we created a list of 137 chapters of the book, including
+Etymology and Epilogue.
+
+```{r}
+chapters = strsplit(md, "\r\n    \r\n    \r\n      \r\n       \r\n    \r\n    \r\n      \r\n    \r\n      |\r\n\r\n      \r\n    \r\n      \r\n       \r\n    \r\n    \r\n      \r\n    \r\n      |\r\n     \r\n    \r\n      \r\n       \r\n    \r\n    \r\n      \r\n    \r\n      ")[[1]]
+split_beginning = strsplit(chapters[1], "\r\n      \r\n      \r\n    \r\n      \r\n       \r\n      \r\n        \r\n      \r\n        ")[[1]]
+split_ending = strsplit(chapters[137], "\r\n    \r\n\r\n")[[1]]
+chapters[1] = split_beginning[2]
+chapters[137] = split_ending[1]
+```
+
+
+#### Plot the number of words per chapter 
+
+```{r}
+# Initialize an empty vector to store the number of words in each chapter
+num_of_words_vec = c()
+
+# Create a sequence of chapter indices from 1 to 137
+chapter_index = seq(1:137)
+
+# Loop through each chapter in the 'chapters' list
+for (chapter_j in chapters) {
+  
+  # Split the chapter text into individual words and count the number of words
+  num_words_chapter_j = length(unlist(strsplit(chapter_j, "\\W+")))
+  
+  # Append the number of words in the current chapter to the 'num_of_words_vec' vector
+  num_of_words_vec = c(num_of_words_vec, num_words_chapter_j)
+}
+
+# Create a data frame with chapter indices and corresponding number of words
+df_chapters_q2a = data.frame(chapter_index, num_of_words_vec)
+
+# Create a bar plot showing the number of words per chapter
+ggplot(df_chapters_q2a, aes(x = chapter_index, y = num_of_words_vec)) +
+  geom_bar(stat='identity', fill = "skyblue") +  # Plot bars with heights corresponding to the number of words
+  scale_x_continuous(breaks =  c(seq(1, 137, 7))) +  # Set custom breaks for chapter indices
+  ggtitle("Chapters vs Number of Words") +  # Set plot title
+  labs(x = "Chapter Index", y = "Number of Words") +  # Set axis labels
+  theme_minimal()  # Apply a minimal theme to the plot
+
+```
+
+#### Frequency of String per chapter
+
+We've developed a function designed to compute a vector representing the relative frequencies of a specified string within each chapter of the book. This function allows us to analyze how the occurrence of a particular word evolves throughout the narrative, providing insights into its significance and usage patterns across different sections of the text.
+
+```{r}
+# Function to calculate the relative frequency of a specific word in each chapter of a book
+freq_func_q2 = function(word_q2, chapters_q2) {
+  
+  # Initialize an empty vector to store the relative frequencies
+  word_porportions_vec = c()
+  
+  # Loop through each chapter in the 'chapters_q2' list
+  for (chapter_i in chapters_q2) {
+    
+    # Count the number of occurrences of the word in the current chapter
+    true_in_i = str_count(chapter_i, as.character(word_q2))
+    
+    # Count the total number of words in the current chapter
+    total_in_i = length(unlist(strsplit(chapter_i, "\\W+")))
+    
+    # Calculate the relative frequency of the word in the current chapter
+    porportions_in_i = true_in_i / total_in_i
+    
+    # Append the relative frequency to the 'word_porportions_vec' vector
+    word_porportions_vec = c(word_porportions_vec, porportions_in_i)
+  }
+  
+  # Return the vector of relative frequencies
+  return(word_porportions_vec)
+}
+
+```
+
+
+#### Calculating the relative frequencies of "Ahab", "Moby" and "sea" in each Chapter 
+
+```{r}
+# Calculate the relative frequencies of the words "Ahab", "Moby", and "sea" in each chapter
+Ahab_q2_b = freq_func_q2("Ahab", chapters)  # Relative frequencies of "Ahab"
+Moby_q2_b = freq_func_q2("Moby", chapters)  # Relative frequencies of "Moby"
+sea_q2_b = freq_func_q2("sea", chapters)    # Relative frequencies of "sea"
+
+# Create a data frame containing chapter indices and the relative frequencies of the words
+df_words_q2_b = data.frame(chapter_index, Ahab_q2_b, Moby_q2_b, sea_q2_b)
+
+# Create a bar plot showing the relative frequencies of "Ahab" in each chapter
+ggplot(df_words_q2_b, aes(x = chapter_index, y = Ahab_q2_b)) +
+  geom_bar(stat='identity', fill = "skyblue") +  # Plot bars with heights corresponding to relative frequencies
+  scale_x_continuous(breaks =  c(seq(1,137,7))) +  # Set custom breaks for chapter indices
+  ggtitle("Porportions of 'Ahab' Appearance vs Chapters") +  # Set plot title
+  labs(x = "Chapter index", y = "Porportions of 'Ahab' Appearance in the chapter")  # Set axis labels
+
+```
+
+```{r}
+ggplot(df_words_q2_b, aes(x = chapter_index, y = Moby_q2_b)) + geom_bar(stat='identity', fill = "skyblue") +scale_x_continuous(breaks =  c(seq(1,137,7))) + ggtitle("Porportions of 'Moby' name apperance vs Chapters") +
+  labs(x = "Chapter index", y = "Porportions of 'Moby' appearnce in the chapter")
+```
+
+
+```{r}
+ggplot(df_words_q2_b, aes(x = chapter_index, y = sea_q2_b)) + geom_bar(stat='identity', fill = "skyblue") +scale_x_continuous(breaks =  c(seq(1,137,7))) + ggtitle("Porportions of 'sea' apperance vs Chapters") +
+  labs(x = "Chapter index", y = "Porportions of 'sea' appearnce in the chapter")
+```
+
+
+#### conclusion
+
+The plot shows how certain words are used in Moby Dick. "Sea" is used a lot from the start because the story mostly happens at sea. But words like "Ahab" and "Moby" show up less in the middle, then more towards the end. This means they become more important as the story goes on. It's like seeing the story unfold through the words that are used.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
