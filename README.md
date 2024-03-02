@@ -1,4 +1,4 @@
-# R Text Analysis for Moby Dick
+# Text Analysis for Moby Dick using R
 
 This Mini- project involves analyzing the text of Herman Melville's classic novel, Moby Dick, using the R programming language. Through a series of analytical tasks, we aim to uncover insights into the text structure, word frequencies, and chapter patterns.
 
